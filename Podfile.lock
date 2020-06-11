@@ -1,0 +1,68 @@
+PODS:
+  - Alamofire (5.2.1)
+  - iOSSnapshotTestCase (6.2.0):
+    - iOSSnapshotTestCase/SwiftSupport (= 6.2.0)
+  - iOSSnapshotTestCase/Core (6.2.0)
+  - iOSSnapshotTestCase/SwiftSupport (6.2.0):
+    - iOSSnapshotTestCase/Core
+  - NVActivityIndicatorView (4.8.0):
+    - NVActivityIndicatorView/Presenter (= 4.8.0)
+  - NVActivityIndicatorView/Presenter (4.8.0)
+  - RxAlamofire (5.3.1):
+    - RxAlamofire/Core (= 5.3.1)
+  - RxAlamofire/Core (5.3.1):
+    - Alamofire (~> 5.1)
+    - RxSwift (~> 5.1)
+  - RxBlocking (5.1.1):
+    - RxSwift (~> 5)
+  - RxCocoa (5.1.1):
+    - RxRelay (~> 5)
+    - RxSwift (~> 5)
+  - RxRelay (5.1.1):
+    - RxSwift (~> 5)
+  - RxSwift (5.1.1)
+  - RxTest (5.1.1):
+    - RxSwift (~> 5)
+  - SDWebImage (5.8.0):
+    - SDWebImage/Core (= 5.8.0)
+  - SDWebImage/Core (5.8.0)
+
+DEPENDENCIES:
+  - Alamofire
+  - iOSSnapshotTestCase
+  - NVActivityIndicatorView
+  - RxAlamofire
+  - RxBlocking
+  - RxCocoa
+  - RxSwift
+  - RxTest
+  - SDWebImage
+
+SPEC REPOS:
+  trunk:
+    - Alamofire
+    - iOSSnapshotTestCase
+    - NVActivityIndicatorView
+    - RxAlamofire
+    - RxBlocking
+    - RxCocoa
+    - RxRelay
+    - RxSwift
+    - RxTest
+    - SDWebImage
+
+SPEC CHECKSUMS:
+  Alamofire: e911732990610fe89af59ac0077f923d72dc3dfd
+  iOSSnapshotTestCase: 9ab44cb5aa62b84d31847f40680112e15ec579a6
+  NVActivityIndicatorView: d24b7ebcf80af5dcd994adb650e2b6c93379270f
+  RxAlamofire: 15502b290253fab68688dafd60914c6390e9cc73
+  RxBlocking: 5f700a78cad61ce253ebd37c9a39b5ccc76477b4
+  RxCocoa: 32065309a38d29b5b0db858819b5bf9ef038b601
+  RxRelay: d77f7d771495f43c556cbc43eebd1bb54d01e8e9
+  RxSwift: 81470a2074fa8780320ea5fe4102807cb7118178
+  RxTest: 711632d5644dffbeb62c936a521b5b008a1e1faa
+  SDWebImage: 84000f962cbfa70c07f19d2234cbfcf5d779b5dc
+
+PODFILE CHECKSUM: 6d5499e86fc2cc98aedb0f0e171f9f94268c29bc
+
+COCOAPODS: 1.9.1
