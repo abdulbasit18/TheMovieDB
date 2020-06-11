@@ -13,6 +13,8 @@ class MovieDetailsSnapShotTests: FBSnapshotTestCase {
 
     override func setUp() {
         super.setUp()
+        
+        recordMode = false
     }
 
     func testWhenAllDataIsFilled() {
