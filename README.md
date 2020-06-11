@@ -1,6 +1,6 @@
 # The MovieDB
 
-Simple Project which shows the Movies listing and its details
+Simple Project which shows the Movies listing and its detail
 
 This Project was part of implementation of MVVM with Coordinator pattern along with SnapShot Testing
 
