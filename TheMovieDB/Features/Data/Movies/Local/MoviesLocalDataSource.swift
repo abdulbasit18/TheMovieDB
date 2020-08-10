@@ -7,48 +7,101 @@
 //
 
 import Foundation
+import RxSwift
 
-protocol MoviesLocalDataSourceProtocol {
-    func getMovies(id: String?) -> [MovieDTO]
-    func saveMovies(movies: [MovieDTO])
-    func deleteMovies(movies: [MovieDTO])
-    func deleteAllMovies()
-    func updateMovies(movies: [MovieDTO])
+//MARK: - Types
+internal typealias FailedErrorType = (error: Error, id: String?)
+internal typealias FailedMoviesErrorType = (error: Error, movies: [MovieDTO])
+
+//MARK: - Protocols
+protocol MoviesLocalDataSourceInputs: class {
+    var saveMoviesSubject: PublishSubject<[MovieDTO]> { get }
+    var deleteMoviesSubject: PublishSubject<[MovieDTO]> { get }
+    var updateMoviesSubject: PublishSubject<[MovieDTO]> { get }
+    var deleteAllMoviesSubject: PublishSubject<Void> { get }
+    var getMoviesWithIdSubject: PublishSubject<FailedErrorType> { get }
 }
 
+protocol MoviesLocalDataSourceOutputs: class {
+    var getMoviesSubject: PublishSubject<FailedMoviesErrorType> { get }
+}
+
+protocol MoviesLocalDataSourceProtocol: MoviesLocalDataSourceInputs, MoviesLocalDataSourceOutputs {
+    var inputs: MoviesLocalDataSourceInputs { get }
+    var outputs: MoviesLocalDataSourceOutputs { get }
+}
+
+//MARK: - MoviesLocalDataSource Implementation 
 final class MoviesLocalDataSource: MoviesLocalDataSourceProtocol {
+    
+    var inputs: MoviesLocalDataSourceInputs { self}
+    var outputs: MoviesLocalDataSourceOutputs { self }
+    
+    //MARK: - Inputs
+    var saveMoviesSubject = PublishSubject<[MovieDTO]>()
+    var deleteMoviesSubject = PublishSubject<[MovieDTO]>()
+    var updateMoviesSubject = PublishSubject<[MovieDTO]>()
+    var deleteAllMoviesSubject = PublishSubject<Void>()
+    var getMoviesWithIdSubject = PublishSubject<FailedErrorType>()
+    
+    //MARK: - Outputs
+    var getMoviesSubject = PublishSubject<FailedMoviesErrorType>()
+    
+    //MARK: - Properties
+    private let disposeBag = DisposeBag()
+    private let localDBManager: CoreDataManger
+    private let entity = "Movie"
 
-    let localDBManager: CoreDataManger
-    let entity = "Movie"
-
+    //MARK: - Initilizers
     init(localDBManager: CoreDataManger) {
         self.localDBManager = localDBManager
+        
+        //Setup Rx Binings
+        setupBindings()
     }
-
-    func getMovies(id: String?) -> [MovieDTO] {
-        let predicate = (id != nil) ? Predicate(format: "%k == %@", arguments: ["movieId" , id!]) : nil
-        let result = localDBManager.fetchObject(entity, predicate: predicate) as! [Movie]
-        return result.compactMap(convertMovieToMovieDTO)
+    
+    //MARK: - Bindings
+    private func setupBindings() {
+        
+        //Save Movies on Invocation
+        inputs.saveMoviesSubject.subscribe(onNext: { [weak self] (movies) in
+            guard let self = self else { return }
+            let _ = movies.compactMap(self.convertMovieDtoToMovie)
+            self.localDBManager.save(entity: self.entity)
+        }).disposed(by: disposeBag)
+        
+        //Delete All Movies on Invocation
+        inputs.deleteAllMoviesSubject.subscribe(onNext: { [weak self] (_) in
+            guard let self = self else { return }
+            self.localDBManager.deleteObjects(self.entity)
+        }).disposed(by: disposeBag)
+        
+        //Delete Movies on Invocation
+        inputs.deleteMoviesSubject.subscribe(onNext: { [weak self] (movies) in
+            guard let self = self else { return }
+            movies.forEach(self.delete)
+        }).disposed(by: disposeBag)
+        
+        //Update Movies on Invocation
+        inputs.updateMoviesSubject.subscribe(onNext: { [weak self] (movies) in
+            guard let self = self else { return }
+            movies.forEach(self.update)
+        }).disposed(by: disposeBag)
+        
+        //Get Movies with ID on Invocation
+        inputs.getMoviesWithIdSubject.subscribe(onNext: { [weak self] (request) in
+            guard let self = self else { return }
+            let predicate = (request.id != nil) ? Predicate(format: "%k == %@", arguments: ["movieId" , request.id ?? ""]) : nil
+            let result = self.localDBManager.fetchObject(self.entity, predicate: predicate) as! [Movie]
+            let compactResults = result.compactMap(self.convertMovieToMovieDTO)
+            self.outputs.getMoviesSubject.onNext((error: request.error, movies: compactResults))
+            
+        }).disposed(by: disposeBag)
+        
     }
-
-    func saveMovies(movies: [MovieDTO]) {
-        let _ = movies.compactMap(convertMovieDtoToMovie)
-        localDBManager.save(entity: entity)
-    }
-
-    func deleteAllMovies() {
-        localDBManager.deleteObjects(entity)
-    }
-
-    func deleteMovies(movies: [MovieDTO]) {
-        movies.forEach(delete)
-    }
-
-    func updateMovies(movies: [MovieDTO]) {
-        movies.forEach(update)
-    }
-
 }
+
+//MARK: - Database CRUD Functionality
 
 extension MoviesLocalDataSource {
 

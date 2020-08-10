@@ -7,42 +7,72 @@
 //
 
 import Foundation
+import RxSwift
 
-protocol MoviesRemoteDataStoreDelegate: class {
-    func didFetchMovie(movies : MovieResponseModel)
-    func didFailWithError(error: Error)
+//MARK: - Protocols
+
+protocol MoviesRemoteDataOutputs: class {
+    var fetchMovieSubject: PublishSubject<MovieResponseModel> { get }
+    var failWithErrorSubject: PublishSubject<Error> { get }
 }
 
-protocol MoviesRemoteDataStoreProtocol {
-    var delegate: MoviesRemoteDataStoreDelegate? { get set }
-    func getMovies(parameters: MovieRequestModel)
+protocol MoviesRemoteDataInputs: class {
+    var getMoviesSubject: PublishSubject<MovieRequestModel> { get }
 }
+
+protocol MoviesRemoteDataStoreProtocol: MoviesRemoteDataInputs , MoviesRemoteDataOutputs {
+    var inputs: MoviesRemoteDataInputs { get }
+    var outputs: MoviesRemoteDataOutputs { get }
+}
+
+//MARK: - MoviesRemoteDataStore Implementation
 
 final class MoviesRemoteDataStore: MoviesRemoteDataStoreProtocol {
-
-    weak var delegate: MoviesRemoteDataStoreDelegate?
+    
+    var outputs: MoviesRemoteDataOutputs { self }
+    var inputs: MoviesRemoteDataInputs { self }
+    
+    //MARK: - Inputs
+    var getMoviesSubject = PublishSubject<MovieRequestModel>()
+    var failWithErrorSubject = PublishSubject<Error>()
+    //MARK: - OutPuts
+    var fetchMovieSubject = PublishSubject<MovieResponseModel>()
+    
+    //MARK: - Properties
+    private let disposeBag = DisposeBag()
     private let networkManager: Networking
     private let endpoint = "movie/now_playing"
-
-    init(networkManager: Networking = NetworkManager(), delegate: MoviesRemoteDataStoreDelegate? = nil) {
-        self.delegate = delegate
+    
+    //MARK: - Initilizers
+    init(networkManager: Networking = NetworkManager()) {
         self.networkManager = networkManager
+        
+        //Setup Rx Bindings
+        setupBindings()
     }
-
-    func getMovies(parameters: MovieRequestModel) {
+    
+    //MARK: - Bindings
+    
+    private func setupBindings() {
+        // Calling movies service on invocation
+        inputs.getMoviesSubject.subscribe(onNext: { [weak self] (parameters) in
+            self?.getMovies(parameters: parameters)
+        }).disposed(by: disposeBag)
+    }
+    
+    //MARK: - Networking
+    private func getMovies(parameters: MovieRequestModel) {
         let path = APIPathBuilder(baseURL: Constants.API.baseURL, endPoint: endpoint)
         let request = RequestBuilder(path: path, parameters: parameters)
-
+        
         networkManager.get(request: request) { [weak self] (response: APIResponse<MovieResponseModel>)  in
             guard let self = self else { return }
-
             switch response.result {
-            case .success(let data):
-                self.delegate?.didFetchMovie(movies: data)
-            case .failure(let error):
-                self.delegate?.didFailWithError(error: error)
+                case .success(let data):
+                    self.outputs.fetchMovieSubject.onNext(data)
+                case .failure(let error):
+                    self.outputs.failWithErrorSubject.onNext(error)
             }
         }
     }
-
 }

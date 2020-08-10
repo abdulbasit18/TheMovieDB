@@ -7,47 +7,81 @@
 //
 
 import Foundation
+import RxSwift
 
-protocol MoviesRepositoryDelegate: class {
-    func didFetchMovie(movies : MovieResponseModel)
-    func didFailWithError(movies:[MovieDTO], error: Error)
+//MARK: - Protocols
+protocol MoviesRepositoryInputs: class {
+    var getMoviesSubject: PublishSubject<MovieRequestModel> { get }
 }
 
-protocol MoviesRepositoryProtocol {
-    var delegate: MoviesRepositoryDelegate? { get set }
-    func getMovies(parameters: MovieRequestModel)
+protocol MoviesRepositoryOutputs: class {
+    var fetchMovieSubject: PublishSubject<MovieResponseModel> { get }
+    var FailWithErrorSubject: PublishSubject<FailedMoviesErrorType> { get }
 }
 
+protocol MoviesRepositoryProtocol: MoviesRepositoryInputs, MoviesRepositoryOutputs {
+    var inputs: MoviesRepositoryInputs { get }
+    var outputs: MoviesRepositoryOutputs { get }
+}
+
+//MARK: - MoviesRepository Implementation
 final class MoviesRepository: MoviesRepositoryProtocol {
-    weak var delegate: MoviesRepositoryDelegate?
+    
+    var outputs: MoviesRepositoryOutputs { self}
+    var inputs: MoviesRepositoryInputs { self }
+    
+    //MARK: - Inputs
+    var fetchMovieSubject = PublishSubject<MovieResponseModel>()
+    var FailWithErrorSubject = PublishSubject<FailedMoviesErrorType>()
+    
+    //MARK: - Outputs
+    var getMoviesSubject = PublishSubject<MovieRequestModel>()
+    
+    //MARK: - Properties
     private let remoteMoviesDataSource: MoviesRemoteDataStoreProtocol
     private let localMoviesDataSource: MoviesLocalDataSourceProtocol
-
-    init(remoteMoviesDataSource: MoviesRemoteDataStoreProtocol, localMoviesDataSource: MoviesLocalDataSourceProtocol, delegate: MoviesRepositoryDelegate? = nil) {
+    private let disposeBag = DisposeBag()
+    
+    //MARK: - Initialisers
+    init(remoteMoviesDataSource: MoviesRemoteDataStoreProtocol, localMoviesDataSource: MoviesLocalDataSourceProtocol) {
         self.remoteMoviesDataSource = remoteMoviesDataSource
         self.localMoviesDataSource = localMoviesDataSource
-        self.delegate = delegate
+        
+        //MARK: - Setup Rx Bindings
+        setupBindings()
     }
-
-    func getMovies(parameters: MovieRequestModel) {
-        remoteMoviesDataSource.getMovies(parameters: parameters)
-    }
-
-}
-
-extension MoviesRepository: MoviesRemoteDataStoreDelegate {
-
-    // MARK:- MoviesRemoteDataStoreDelegate
-    func didFetchMovie(movies: MovieResponseModel) {
-        delegate?.didFetchMovie(movies: movies)
-        guard let moviesData = movies.movies else { return }
-        localMoviesDataSource.deleteAllMovies()
-        localMoviesDataSource.saveMovies(movies: moviesData)
-    }
-
-    func didFailWithError(error: Error) {
-        let movies = localMoviesDataSource.getMovies(id: nil)
-        delegate?.didFailWithError(movies: movies, error: error)
+    
+    //MARK: - Bindingas
+    private func setupBindings() {
+        /*Shared Subject of movies which will
+        be shared between local data store and to output the fetched movies*/
+        let sharedMoviesSubject = self.remoteMoviesDataSource.outputs.fetchMovieSubject.share(replay: 1, scope: .whileConnected)
+        
+        //Update local database when movies are fetched
+        sharedMoviesSubject
+            .compactMap{$0.movies}
+            .bind(to: self.localMoviesDataSource.saveMoviesSubject)
+            .disposed(by: disposeBag)
+        
+        //Output the fetched movies data
+        sharedMoviesSubject
+            .bind(to: outputs.fetchMovieSubject).disposed(by: disposeBag)
+        
+        //Trigger the local database fetch in case of error
+        self.remoteMoviesDataSource.outputs.failWithErrorSubject
+            .map{(error: $0, id: nil)}
+            .bind(to: localMoviesDataSource.inputs.getMoviesWithIdSubject)
+            .disposed(by: disposeBag)
+        
+        //Fetch movies data from local database in case of error
+        self.localMoviesDataSource.outputs.getMoviesSubject
+            .bind(to: outputs.FailWithErrorSubject)
+            .disposed(by: disposeBag)
+        
+        //Call fetch movies when triggered
+        self.inputs.getMoviesSubject
+            .bind(to: remoteMoviesDataSource.inputs.getMoviesSubject)
+            .disposed(by: disposeBag)
     }
 }
 

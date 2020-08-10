@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import RxDataSources
 
 struct MovieDTO: Decodable {
 
@@ -29,5 +30,39 @@ struct MovieDTO: Decodable {
         case overview
         case releaseDate = "release_date"
     }
+}
 
+struct MoviesSection {
+    var header:String
+    var items:[Item]
+    var uniqueId: String = "Trending"
+}
+
+extension MoviesSection: AnimatableSectionModelType{
+    
+    typealias Item = MovieDTO
+    typealias Identity = String
+    
+    init(header: String, items: [Item]) {
+        self.header = header
+        self.items = items
+    }
+    
+    init(original: MoviesSection, items: [Item]) {
+        self = original
+        self.items = items
+    }
+    var identity: String {
+        return uniqueId
+    }
+}
+
+
+extension MovieDTO : IdentifiableType, Equatable{
+    
+    typealias Identity = Int
+    
+    var identity: Int {
+        return id
+    }
 }

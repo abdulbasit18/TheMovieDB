@@ -8,62 +8,115 @@
 
 import Foundation
 import RxSwift
+import RxCocoa
 
-protocol MoviesListViewModelDelegate: class {
-    func animateLoader()
-    func stopLoader()
-    func reloadData()
-    func alert(with title: String, message: String)
-}
+//MARK: - Types
+typealias AlertType = (title: String, message: String)
 
-protocol MoviesListViewModelProtocol {
-    var delegate: MoviesListViewModelDelegate? { get set }
-    var numberOfRows: Int { get }
-    var sections: Int { get }
-    var title: String { get }
-    var isLast: Bool { get set }
-    
-    func viewDidLoad()
-    func didTapOnCell(index: Int)
+//MARK: - Protocols
+protocol MoviesListViewModelInputs: class {
+    var viewDidLoadSubject: PublishSubject<Void?> { get }
+    var tapOnCellSubject: PublishSubject<Int> { get }
+    var reachedBottomSubject: PublishSubject<Void?> { get }
     func getMovieListCellViewModel(for index: Int) -> MovieListCellViewModel
 }
 
+protocol MoviesListViewModeOutputs : class {
+    var animateLoaderSubject: PublishSubject<Bool?> { get }
+    var alertSubject: PublishSubject<AlertType> { get }
+    var dataSubject: BehaviorRelay<[MoviesSection]> { get }
+    var title: String { get }
+}
+
+protocol MoviesListViewModelProtocol: MoviesListViewModelInputs, MoviesListViewModeOutputs {
+    var inputs: MoviesListViewModelInputs { get }
+    var outputs: MoviesListViewModeOutputs { get }
+}
+
+//MARK: - MoviesListViewModel Implementation
 final class MoviesListViewModel: MoviesListViewModelProtocol {
     
-    weak var delegate: MoviesListViewModelDelegate?
-    var numberOfRows: Int { return getMovies().count }
-    var sections: Int { return 1 }
-    var title: String { return "The MovieDB" }
-    var isLast: Bool = false {
-        didSet {
-            if isLast {
-                moviesService.getMovies()
-            }
-        }
-    }
+    var inputs: MoviesListViewModelInputs { self }
+    var outputs: MoviesListViewModeOutputs { self }
     
-    private var remoteMovies: [MovieDTO] = []
-    private var localMovies: [MovieDTO] = []
+    //MARK: - Inputs
+    var viewDidLoadSubject = PublishSubject<Void?>()
+    var tapOnCellSubject = PublishSubject<Int>()
+    var reachedBottomSubject = PublishSubject<Void?>()
+    
+    //MARK: - Outputs
+    var alertSubject =  PublishSubject<AlertType>()
+    var animateLoaderSubject = PublishSubject<Bool?>()
+    var dataSubject = BehaviorRelay<[MoviesSection]>(value: [])
+    var title: String { "The MovieDB" }
+    
+    //MARK: - Properties
     private let moviesService: MoviesServiceProtocol
     private let navigator: MoviesListNavigatorProtocol
     private let numberOfSections = 1
     private var fetchedFromLocalStorage = false
+    private let disposeBag = DisposeBag()
     
-    init(moviesService: MoviesServiceProtocol, navigator: MoviesListNavigatorProtocol, delegate: MoviesListViewModelDelegate? = nil) {
+    //MARK: - Initilizers
+    init(moviesService: MoviesServiceProtocol, navigator: MoviesListNavigatorProtocol) {
         self.moviesService = moviesService
-        self.delegate = delegate
         self.navigator = navigator
+        
+        //Setup Rx Bindings
+        setupBindings()
     }
     
-    func viewDidLoad() {
-        delegate?.animateLoader()
-        moviesService.getMovies()
+    //MARK: - Bindings
+    private func setupBindings() {
+        
+        //Load initial calls on viewDidLoad
+        self.inputs.viewDidLoadSubject.subscribe { [weak self] (_) in
+            self?.loadView()
+        }.disposed(by: disposeBag)
+        
+        //Call services on reaching collection view scroll bottom
+        self.inputs.reachedBottomSubject
+            .debounce(.milliseconds(100), scheduler: MainScheduler.instance)
+            .subscribe { [weak self] (_) in
+                self?.loadView()
+        }.disposed(by: disposeBag)
+        
+        //Call tap handle
+        self.inputs.tapOnCellSubject.subscribe(onNext: { [weak self] (index) in
+            self?.didTapOnCell(index: index)
+        }).disposed(by: disposeBag)
+        
+        //Handle loader view
+        self.moviesService.outputs.cantFetchMovieSubject.subscribe { [weak self] (_) in
+            self?.outputs.animateLoaderSubject.onNext(false)
+        }.disposed(by: disposeBag)
+        
+        // Get movies from service
+        self.moviesService.outputs.didFetchMoviesSubject.subscribe(onNext: { [weak self] (movies) in
+            guard let self = self else { return }
+            let oldMoviesData = self.getMovies()
+            let latestValues = oldMoviesData + movies
+            let movieSection = MoviesSection(header: "", items: latestValues)
+            self.dataSubject.accept([movieSection])
+            self.fetchedFromLocalStorage = false
+            self.outputs.animateLoaderSubject.onNext(false)
+        }).disposed(by: disposeBag)
+        
+        // Get data from service in case of an error
+        self.moviesService.outputs.didFailWithErrorSubject.subscribe(onNext: { [weak self] (movies) in
+            guard let self = self else { return }
+            let movieSection = MoviesSection(header: "", items: movies.movies)
+            self.dataSubject.accept([movieSection])
+            self.outputs.animateLoaderSubject.onNext(false)
+            self.fetchedFromLocalStorage = true
+            if movies.movies.isEmpty {
+                self.outputs.alertSubject.onNext((title:"Nothing Found", message: "We couldn't found any movies, please try later"))
+                return
+            }
+        }).disposed(by: disposeBag)
     }
     
-    func didTapOnCell(index: Int) {
-        navigator.navigateToDetail(with: getMovies()[index])
-    }
-    
+    //MARK: - Actions
     func getMovieListCellViewModel(for index: Int) -> MovieListCellViewModel {
         let movie = getMovies()[index]
         let title = movie.title ?? ""
@@ -75,37 +128,19 @@ final class MoviesListViewModel: MoviesListViewModelProtocol {
         return MovieListCellViewModel(movieImageUrl: URL(string: movieImageURL)!, title: title, placeHolderImage: "placeholder")
     }
     
+    private func loadView() {
+        if !fetchedFromLocalStorage {
+            self.outputs.animateLoaderSubject.onNext(true)
+            moviesService.inputs.getMoviesSubject.onNext(nil)
+        }
+    }
+    
+    private func didTapOnCell(index: Int) {
+        navigator.navigateToDetail(with: getMovies()[index])
+    }
+    
     private func getMovies() -> [MovieDTO] {
-        return (fetchedFromLocalStorage) ? localMovies : remoteMovies
-    }
-}
-
-extension MoviesListViewModel: MoviesServiceDelegate {
-    // MARK:- MoviesRepositoryDelegate
-    func didFetchMovies(movies: [MovieDTO]) {
-        remoteMovies += movies
-        fetchedFromLocalStorage = false
-        delegate?.reloadData()
-        delegate?.stopLoader()
-    }
-    
-    func didFailWithError(movies: [MovieDTO], error: Error) {
-        localMovies = movies
-        delegate?.stopLoader()
-        
-        if (localMovies.count == 0 && self.remoteMovies.count == 0) {
-            delegate?.alert(with: "Nothing Found", message: "We couldn't found any movies, please try later")
-            return
-        }
-        
-        if (movies.count == 0) {
-            delegate?.reloadData()
-            fetchedFromLocalStorage = true
-            return
-        }
-    }
-    
-    func cantFetchMovie() {
-        delegate?.stopLoader()
+        let data = self.dataSubject.value.first?.items ?? []
+        return data
     }
 }

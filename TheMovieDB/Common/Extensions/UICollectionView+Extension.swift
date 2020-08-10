@@ -26,6 +26,6 @@ extension UICollectionView {
 
         let size = Double((self.bounds.width - totalSpace) / CGFloat(numberOfCellsInRow))
 
-        return CGSize(width: size, height: (size * 1.5 + 30.0))
+        return CGSize(width: size, height: (size + 30.0))
     }
 }

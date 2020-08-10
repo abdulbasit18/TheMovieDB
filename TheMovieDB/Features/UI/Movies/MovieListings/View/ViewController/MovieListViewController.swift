@@ -8,82 +8,105 @@
 
 import UIKit
 import NVActivityIndicatorView
-import Combine
+import RxSwift
+import RxDataSources
 
-class MovieListViewController: BaseViewController {
-
-    @IBOutlet weak var collectionView: UICollectionView!
+final class MovieListViewController: BaseViewController {
+    
+    //MARK: - IBOutlets
+    @IBOutlet weak private var collectionView: UICollectionView!
+    
+    //MARK: - Properties
     var viewModel: MoviesListViewModelProtocol!
+    private let searchController = UISearchController(searchResultsController: nil)
+    private let disposeBag = DisposeBag()
+    
 
+    //MARK: - Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        //Setup UI
         setCollectionView()
-        self.view.backgroundColor = .black
-        self.title = viewModel.title
-        viewModel.viewDidLoad()
+        setupUI()
         
-        
-
+        //Setup RX Bindings
+        setupBindings()
     }
-
+    
+    //MARK: - Setup UI
+    private func setupUI() {
+        self.view.backgroundColor = .black
+        self.title = viewModel.outputs.title
+        viewModel.inputs.viewDidLoadSubject.onNext(nil)
+        
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search Movies"
+        navigationItem.searchController = searchController
+        definesPresentationContext = true
+    }
+    
     private func setCollectionView() {
-        collectionView.delegate = self
-        collectionView.dataSource = self
+        collectionView.rx.setDelegate(self).disposed(by: disposeBag)
         collectionView.backgroundColor = .clear
     }
+    
+    //MARK: - Setup Bindings
+    private func setupBindings() {
+        
+        searchController.searchBar.rx.searchButtonClicked.subscribe { (_) in
+            print("Search Button Action")
+        }.disposed(by: disposeBag)
+        
+        viewModel.outputs.animateLoaderSubject.subscribe(onNext: { [weak self] (shouldLoad) in
+            guard let self = self, let shouldLoad = shouldLoad else { return}
+            shouldLoad ? self.startAnimating() : self.stopAnimating()
+        }).disposed(by: disposeBag)
+        
+        viewModel.outputs.alertSubject.subscribe(onNext: { [weak self] (alertResponse) in
+            self?.showAlert(with: alertResponse.title, and: alertResponse.message)
+        }).disposed(by: disposeBag)
+        
+        viewModel.outputs.dataSubject.subscribe(onNext: { (_) in
+            self.collectionView.reloadData()
+        }).disposed(by: disposeBag)
+        
+        collectionView.rx.reachedBottom.asObservable()
+            .bind(to: viewModel.inputs.reachedBottomSubject)
+            .disposed(by: disposeBag)
+        
+        
+        let dataSource = RxCollectionViewSectionedAnimatedDataSource<MoviesSection>(
+            configureCell:{ [weak self] dataSource, tableView, indexPath, item in
+                let cell: MovieListCollectionViewCell = (self?.collectionView.dequeueReusableCell(for: indexPath))!
+                cell.viewModel = self?.viewModel.inputs.getMovieListCellViewModel(for: indexPath.row)
+                return cell
+        })
+        
+        dataSource.canMoveItemAtIndexPath = { dataSource, indexPath in
+            return true
+        }
+        
+        viewModel.dataSubject
+            .bind(to: collectionView.rx.items(dataSource: dataSource))
+            .disposed(by: disposeBag)
+    }
 }
 
-extension MovieListViewController: MoviesListViewModelDelegate {
-
-    // MARK:- MoviesListViewModelDelegate
-    func animateLoader() {
-        self.startAnimating()
-    }
-
-    func stopLoader() {
-        self.stopAnimating()
-    }
-
-    func reloadData() {
-        collectionView.reloadData()
-    }
-
-    func alert(with title: String, message: String) {
-        showAlert(with: title, and: message)
-    }
-}
-
-extension MovieListViewController: UICollectionViewDelegate, UICollectionViewDataSource {
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return viewModel.numberOfRows
-    }
-
-    func numberOfSections(in collectionView: UICollectionView) -> Int {
-        return viewModel.sections
-    }
-
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell: MovieListCollectionViewCell = collectionView.dequeueReusableCell(for: indexPath)
-        cell.viewModel = viewModel.getMovieListCellViewModel(for: indexPath.row)
-        return cell
-    }
-
-    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        viewModel.isLast = indexPath.row == (viewModel.numberOfRows - 1)
-
-    }
-
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        viewModel.didTapOnCell(index: indexPath.row)
+extension MovieListViewController: UICollectionViewDelegate {
+    
+    func collectionView(_ collectionView: UICollectionView,
+                        didSelectItemAt indexPath: IndexPath) {
+        viewModel.inputs.tapOnCellSubject.onNext(indexPath.row)
     }
 }
 
 extension MovieListViewController: UICollectionViewDelegateFlowLayout {
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+    func collectionView(_ collectionView: UICollectionView,
+                        layout collectionViewLayout: UICollectionViewLayout,
+                        sizeForItemAt indexPath: IndexPath) -> CGSize {
         return collectionView.sizeForItem(numberOfCellsInRow: 2,
                                           collectionViewLayout: collectionViewLayout
         )
     }
 }
-
-

@@ -7,58 +7,108 @@
 //
 
 import Foundation
+import RxSwift
 
-protocol MoviesServiceDelegate: class {
-    func didFetchMovies(movies: [MovieDTO])
-    func didFailWithError(movies: [MovieDTO], error: Error)
-    func cantFetchMovie()
+//MARK: - Protocols
+protocol MoviesServiceInputs: class {
+    var getMoviesSubject: PublishSubject<Void?> { get }
 }
 
-protocol MoviesServiceProtocol {
-    var delegate: MoviesServiceDelegate? { get set }
-    func getMovies()
+protocol MoviesServiceOutputs: class {
+    var didFetchMoviesSubject: PublishSubject<[MovieDTO]> { get }
+    var didFailWithErrorSubject: PublishSubject<FailedMoviesErrorType> { get }
+    var cantFetchMovieSubject: PublishSubject<Void?> { get }
 }
 
-final class  MoviesService: MoviesServiceProtocol {
+protocol MoviesServiceProtocol: MoviesServiceInputs, MoviesServiceOutputs {
+    var inputs: MoviesServiceInputs { get }
+    var outputs: MoviesServiceOutputs { get }
+}
 
-    weak var delegate: MoviesServiceDelegate?
-    var movieResponse: MovieResponseModel?
+//MARK: - MoviesService Implementation
+final class MoviesService: MoviesServiceProtocol {
+    
+    var inputs: MoviesServiceInputs { self }
+    var outputs: MoviesServiceOutputs { self }
+    
+    //MARK: - Inputs
+    var getMoviesSubject = PublishSubject<Void?>()
+    
+    //MARK: - Outputs
+    var didFetchMoviesSubject = PublishSubject<[MovieDTO]>()
+    var didFailWithErrorSubject = PublishSubject<FailedMoviesErrorType>()
+    var cantFetchMovieSubject = PublishSubject<Void?>()
+    
+    //MARK: - Properties
+    private var movieResponse: MovieResponseModel?
     private let moviesRepository: MoviesRepositoryProtocol
-
+    private let disposeBag = DisposeBag()
+    
+    //MARK: - Initilizers
     init(moviesRepository: MoviesRepositoryProtocol) {
         self.moviesRepository = moviesRepository
+        
+        //Setup Rx Bindings
+        setupBindings()
     }
-
-    func getMovies() {
-        (canFetchMovies()) ? fetchMovies(page: (movieResponse?.page ?? 0) + 1, apiKey: Constants.Keys.api) : cantFetchMovies()
+    
+    //MARK: - Bindings
+    private func setupBindings() {
+        /*Shared Subject of movies which will
+         be shared between local local movies object and to output the fetched movies*/
+        let sharedMovieSubject = self.moviesRepository.outputs.fetchMovieSubject.share(replay: 1, scope: .whileConnected)
+        
+        //Output Movies Data
+        sharedMovieSubject
+            .compactMap{$0.movies}
+            .bind(to: outputs.didFetchMoviesSubject)
+            .disposed(by: disposeBag)
+        
+        //Save Data locally
+        sharedMovieSubject.subscribe(onNext: { [weak self] (movies) in
+            self?.movieResponse = movies
+        }).disposed(by: disposeBag)
+        
+        //Output Data in case of an error
+        self.moviesRepository.outputs.FailWithErrorSubject
+            .bind(to: outputs.didFailWithErrorSubject)
+            .disposed(by: disposeBag)
+        
+        //Get Movies input call
+        inputs.getMoviesSubject.subscribe(onNext: { [weak self] (_) in
+            guard let self = self else { return }
+            self.getMoviesData()
+        }).disposed(by: disposeBag)
     }
+}
 
+//MARK: - Extensions
+extension MoviesService {
+    
+    //Outputs movies data
+    private func getMoviesData() {
+        (canFetchMovies()) ?
+            fetchMovies(page: (movieResponse?.page ?? 0) + 1, apiKey: Constants.Keys.api) :
+            cantFetchMovies()
+    }
+    
+    // Check if movies data can be fetched
     private func canFetchMovies() -> Bool {
-        guard let movieResponse = movieResponse, (movieResponse.page != nil), (movieResponse.totalPages != nil) else { return true }
+        guard let movieResponse = movieResponse,
+            (movieResponse.page != nil),
+            (movieResponse.totalPages != nil) else { return true }
         return (movieResponse.page! == movieResponse.totalPages!) ? false : true
     }
-
+    
+    //Get movies
     private func fetchMovies(page: Int, apiKey: String) {
         let moviesRequestModel = MovieRequestModel(page: page, api_key: apiKey)
-        moviesRepository.getMovies(parameters: moviesRequestModel)
+        self.moviesRepository.inputs.getMoviesSubject.onNext(moviesRequestModel)
     }
-
+    
+    //Output movies can not be fetched
     private func cantFetchMovies() {
-        delegate?.cantFetchMovie()
+        outputs.cantFetchMovieSubject.onNext(nil)
     }
+    
 }
-
-extension MoviesService: MoviesRepositoryDelegate {
-
-    // MARK:- MoviesRepositoryDelegate
-    func didFetchMovie(movies: MovieResponseModel) {
-        movieResponse = movies
-        delegate?.didFetchMovies(movies: movies.movies ?? [])
-    }
-
-    func didFailWithError(movies: [MovieDTO], error: Error) {
-        delegate?.didFailWithError(movies: movies, error: error)
-    }
-
-}
-

@@ -51,6 +51,7 @@
 		03DB0087238C556600B5F46B /* MoviesRemoteDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03DB0086238C556600B5F46B /* MoviesRemoteDataStore.swift */; };
 		03DB008B238C5C5200B5F46B /* MoviesLocalDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03DB008A238C5C5200B5F46B /* MoviesLocalDataSource.swift */; };
 		6BC68F12B048670CDECE8B1E /* Pods_TheMovieDBTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3BAD5135881B37D18224BA3 /* Pods_TheMovieDBTests.framework */; };
+		6EBEA92124C372E0005DA753 /* UIScrollView+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EBEA92024C372E0005DA753 /* UIScrollView+Extensions.swift */; };
 		C1459907A43498A55199B804 /* Pods_TheMovieDB.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0BDA82418D848FB12D040044 /* Pods_TheMovieDB.framework */; };
 /* End PBXBuildFile section */
 
@@ -128,6 +129,7 @@
 		03DB008A238C5C5200B5F46B /* MoviesLocalDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoviesLocalDataSource.swift; sourceTree = "<group>"; };
 		0BDA82418D848FB12D040044 /* Pods_TheMovieDB.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_TheMovieDB.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F1E612708C119C6AAD8C62D /* Pods-TheMovieDBTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TheMovieDBTests.release.xcconfig"; path = "Target Support Files/Pods-TheMovieDBTests/Pods-TheMovieDBTests.release.xcconfig"; sourceTree = "<group>"; };
+		6EBEA92024C372E0005DA753 /* UIScrollView+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIScrollView+Extensions.swift"; sourceTree = "<group>"; };
 		93397B50135E17C6726F5667 /* Pods-TheMovieDBTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TheMovieDBTests.debug.xcconfig"; path = "Target Support Files/Pods-TheMovieDBTests/Pods-TheMovieDBTests.debug.xcconfig"; sourceTree = "<group>"; };
 		C55D2FC7C0BD38948A2F225B /* Pods-TheMovieDB.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TheMovieDB.release.xcconfig"; path = "Target Support Files/Pods-TheMovieDB/Pods-TheMovieDB.release.xcconfig"; sourceTree = "<group>"; };
 		D3BAD5135881B37D18224BA3 /* Pods_TheMovieDBTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_TheMovieDBTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -521,6 +523,7 @@
 				03634CC12392A5C900C34D5A /* AlertPresentable+Extension.swift */,
 				03634CCE2392BB5000C34D5A /* NibLoadableView.swift */,
 				03634CD22392BF5C00C34D5A /* UIViewController+Extension.swift */,
+				6EBEA92024C372E0005DA753 /* UIScrollView+Extensions.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -609,6 +612,7 @@
 				03C18FF7238AF04500FC224C /* Resources */,
 				03B978E4238B08FB00D8A054 /* Embed Frameworks */,
 				BC71FD7EBF89CDE7ED7B0CE3 /* [CP] Embed Pods Frameworks */,
+				6EAAA61724C0EDB50067F283 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -699,6 +703,23 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		6EAAA61724C0EDB50067F283 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n";
+		};
 		8519F140CD5C586C2AF4849C /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -799,6 +820,7 @@
 				03634CD62392D5E100C34D5A /* MovieDetailViewController.swift in Sources */,
 				039BE674238B2239009C0DAC /* Constants.swift in Sources */,
 				039BE668238B1AE9009C0DAC /* MovieRequest.swift in Sources */,
+				6EBEA92124C372E0005DA753 /* UIScrollView+Extensions.swift in Sources */,
 				03634CC22392A5C900C34D5A /* AlertPresentable+Extension.swift in Sources */,
 				03049E14238D091400B209CC /* MoviesRepository.swift in Sources */,
 				03905A9C2393BB5C00D772C8 /* NetworkManager.swift in Sources */,

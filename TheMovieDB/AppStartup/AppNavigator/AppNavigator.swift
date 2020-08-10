@@ -29,11 +29,6 @@ struct AppNavigator { //: AppNavigatorProtocol {
         let navigator = MoviesListNavigator(navigationController: rootController)
         let viewModel = MoviesListViewModel(moviesService: service, navigator: navigator)
 
-        remoteDataSource.delegate = repository
-        repository.delegate = service
-        service.delegate = viewModel
-        viewModel.delegate = movieListController
-
         movieListController.viewModel = viewModel
 
         window.rootViewController = rootController
