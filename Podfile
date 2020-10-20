@@ -7,7 +7,8 @@ target 'TheMovieDB' do
   pod 'RxSwift'
   pod 'RxCocoa'
   pod 'SDWebImage'
-  pod 'NVActivityIndicatorView'
+  pod 'NVActivityIndicatorView/Extended'
+  
 
   target 'TheMovieDBTests' do
     inherit! :search_paths
